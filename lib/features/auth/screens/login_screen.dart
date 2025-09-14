@@ -1,0 +1,720 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../../../core/widgets/tennis_loading.dart';
+import '../../../shared/widgets/flying_racket.dart';
+import '../../../core/utils/toast.dart';
+import 'register_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _isLoginMode = true;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscureConfirmPassword = true;
+  
+  late AnimationController _backgroundAnimationController;
+  late Animation<double> _backgroundAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupBackgroundAnimation();
+  }
+
+  @override
+  void dispose() {
+    _backgroundAnimationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _setupBackgroundAnimation() {
+    _backgroundAnimationController = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    );
+    
+    _backgroundAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _backgroundAnimationController,
+      curve: Curves.linear,
+    ));
+    
+    _backgroundAnimationController.repeat();
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authProvider = context.read<AuthProvider>();
+    print('Login attempt starting...');
+    final success = await authProvider.login(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    print('Login result: $success');
+    print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
+    print('AuthProvider user: ${authProvider.user?.name}');
+    print('AuthProvider token: ${authProvider.token != null ? 'Present' : 'Missing'}');
+
+    if (success) {
+      if (mounted) {
+        // AuthProvider state'i güncellendiği için AuthWrapper otomatik olarak ana sayfaya yönlendirecek
+        Toast.success(context, 'Giriş başarılı!');
+        print('Login successful, waiting for AuthWrapper to redirect...');
+        
+        // Eğer AuthWrapper çalışmazsa, manuel navigation yap
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && authProvider.isLoggedIn) {
+            print('Manual navigation to home screen...');
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        });
+      }
+    } else {
+      if (mounted) {
+        _showErrorSnackBar(authProvider.error ?? 'Giriş başarısız');
+      }
+    }
+  }
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.register(
+      _nameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text,
+      phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+    );
+
+    if (success) {
+      if (mounted) {
+        // AuthProvider state'i güncellendiği için AuthWrapper otomatik olarak ana sayfaya yönlendirecek
+        Toast.success(context, 'Hesap başarıyla oluşturuldu!');
+        
+        // Eğer AuthWrapper çalışmazsa, manuel navigation yap
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && authProvider.isLoggedIn) {
+            print('Manual navigation to home screen after register...');
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        });
+      }
+    } else {
+      if (mounted) {
+        _showErrorSnackBar(authProvider.error ?? 'Kayıt başarısız');
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.signInWithGoogle();
+
+    if (success) {
+      if (mounted) {
+        Toast.success(context, 'Google ile giriş başarılı!');
+        
+        // Eğer AuthWrapper çalışmazsa, manuel navigation yap
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && authProvider.isLoggedIn) {
+            print('Manual navigation to home screen after Google login...');
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        });
+      }
+    } else {
+      if (mounted) {
+        _showErrorSnackBar(authProvider.error ?? 'Google ile giriş başarısız');
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    Toast.error(context, message);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final isSmallScreen = screenHeight < 700;
+    final isLargeScreen = screenWidth > 900;
+    
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Arka plan gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFF8FAFC),
+                  Color(0xFFF1F5F9),
+                  Color(0xFFE2E8F0),
+                ],
+                stops: [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+          
+          // Uçan raketler
+          AnimatedBuilder(
+            animation: _backgroundAnimation,
+            builder: (context, child) {
+              return Stack(
+                children: List.generate(6, (index) {
+                  return FlyingRacket(
+                    screenWidth: screenWidth,
+                    screenHeight: screenHeight,
+                    index: index,
+                  );
+                }),
+              );
+            },
+          ),
+          
+          // Ana içerik
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? screenWidth * 0.15 : screenWidth * 0.08,
+                  vertical: isSmallScreen ? screenHeight * 0.01 : screenHeight * 0.02,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenHeight * (isSmallScreen ? 0.95 : 0.9),
+                    maxWidth: isLargeScreen ? 600 : (isTablet ? 500 : 400),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(isTablet ? 32 : 24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: isTablet ? 40 : 30,
+                          offset: Offset(0, isTablet ? 20 : 15),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(isTablet ? 40.0 : 32.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Logo and Title
+                            Container(
+                              padding: EdgeInsets.all(isTablet ? 20 : 16),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                    blurRadius: isTablet ? 25 : 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.sports_tennis,
+                                size: isTablet ? 48 : 40,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(height: isTablet ? 32 : 24),
+                            
+                            Text(
+                              _isLoginMode ? 'Giriş Yap' : 'Hesap Oluştur',
+                              style: TextStyle(
+                                fontSize: isTablet ? 32 : 28,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            SizedBox(height: isTablet ? 12 : 8),
+                            
+                            Text(
+                              _isLoginMode 
+                                  ? 'Tenis kortu rezervasyonu için giriş yapın'
+                                  : 'Tenis dünyasına katılın',
+                              style: TextStyle(
+                                fontSize: isTablet ? 18 : 16,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: isTablet ? 40 : 32),
+
+                            // Name Field (only for register)
+                            if (!_isLoginMode) ...[
+                              _buildTextField(
+                                controller: _nameController,
+                                labelText: 'Ad Soyad',
+                                prefixIcon: Icons.person_outline,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Ad soyad gerekli';
+                                  }
+                                  if (value.length < 2) {
+                                    return 'Ad soyad en az 2 karakter olmalı';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isTablet ? 20 : 16),
+                            ],
+
+                            // Email Field
+                            _buildTextField(
+                              controller: _emailController,
+                              labelText: 'E-posta',
+                              prefixIcon: Icons.email_outlined,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'E-posta adresi gerekli';
+                                }
+                                if (!value.contains('@')) {
+                                  return 'Geçerli bir e-posta adresi girin';
+                                }
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: isTablet ? 20 : 16),
+
+                            // Phone Field (only for register)
+                            if (!_isLoginMode) ...[
+                              _buildTextField(
+                                controller: _phoneController,
+                                labelText: 'Telefon (İsteğe bağlı)',
+                                prefixIcon: Icons.phone_outlined,
+                                keyboardType: TextInputType.phone,
+                                validator: (value) {
+                                  if (value != null && value.isNotEmpty) {
+                                    if (value.length < 10) {
+                                      return 'Geçerli bir telefon numarası girin';
+                                    }
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isTablet ? 20 : 16),
+                            ],
+
+                            // Password Field
+                            _buildTextField(
+                              controller: _passwordController,
+                              labelText: 'Şifre',
+                              prefixIcon: Icons.lock_outline,
+                              obscureText: _obscurePassword,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Şifre gerekli';
+                                }
+                                if (value.length < 6) {
+                                  return 'Şifre en az 6 karakter olmalı';
+                                }
+                                return null;
+                              },
+                            ),
+                            SizedBox(height: isTablet ? 20 : 16),
+
+                            // Confirm Password Field (only for register)
+                            if (!_isLoginMode) ...[
+                              _buildTextField(
+                                controller: _confirmPasswordController,
+                                labelText: 'Şifre Tekrar',
+                                prefixIcon: Icons.lock_outline,
+                                obscureText: _obscureConfirmPassword,
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                                    });
+                                  },
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Şifre tekrarı gerekli';
+                                  }
+                                  if (value != _passwordController.text) {
+                                    return 'Şifreler eşleşmiyor';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isTablet ? 32 : 24),
+                            ] else
+                              SizedBox(height: isTablet ? 12 : 8),
+
+                            // Submit Button
+                            Consumer<AuthProvider>(
+                              builder: (context, authProvider, child) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: isTablet ? 64 : 56,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                        blurRadius: isTablet ? 25 : 20,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: authProvider.isLoading 
+                                          ? null 
+                                          : (_isLoginMode ? _login : _register),
+                                      borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+                                      child: Center(
+                                        child: authProvider.isLoading
+                                            ? TennisLoading(
+                                                size: isTablet ? 24 : 20,
+                                                color: Colors.white,
+                                              )
+                                            : Text(
+                                                _isLoginMode ? 'Giriş Yap' : 'Hesap Oluştur',
+                                                style: TextStyle(
+                                                  fontSize: isTablet ? 18 : 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            SizedBox(height: isTablet ? 24 : 20),
+
+                            // Divider
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: Colors.grey.shade300,
+                                    thickness: 1,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16),
+                                  child: Text(
+                                    'veya',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: isTablet ? 14 : 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: Colors.grey.shade300,
+                                    thickness: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: isTablet ? 24 : 20),
+
+                            // Google Sign-In Button
+                            Consumer<AuthProvider>(
+                              builder: (context, authProvider, child) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: isTablet ? 56 : 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: authProvider.isLoading ? null : _signInWithGoogle,
+                                      borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+                                      child: Center(
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.login,
+                                              color: Colors.grey.shade600,
+                                              size: isTablet ? 24 : 20,
+                                            ),
+                                            SizedBox(width: isTablet ? 12 : 8),
+                                            Text(
+                                              'Google ile Giriş Yap',
+                                              style: TextStyle(
+                                                fontSize: isTablet ? 16 : 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.grey.shade800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            SizedBox(height: isTablet ? 32 : 24),
+
+                            // Toggle Mode
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _isLoginMode ? 'Hesabınız yok mu? ' : 'Zaten hesabınız var mı? ',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: isTablet ? 16 : 14,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isLoginMode = !_isLoginMode;
+                                      // Clear form when switching modes
+                                      _emailController.clear();
+                                      _passwordController.clear();
+                                      _nameController.clear();
+                                      _phoneController.clear();
+                                      _confirmPasswordController.clear();
+                                    });
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 12 : 8),
+                                  ),
+                                  child: Text(
+                                    _isLoginMode ? 'Kayıt Ol' : 'Giriş Yap',
+                                    style: TextStyle(
+                                      color: Color(0xFF10B981),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: isTablet ? 16 : 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: isTablet ? 24 : 20),
+
+                            // Demo Navigation Buttons
+                            Container(
+                              padding: EdgeInsets.all(isTablet ? 20 : 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.grey.shade200,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Demo Navigasyon',
+                                    style: TextStyle(
+                                      fontSize: isTablet ? 16 : 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.pushNamed(context, '/home');
+                                          },
+                                          icon: const Icon(Icons.home, size: 16),
+                                          label: const Text('Ana Sayfa'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF10B981),
+                                            foregroundColor: Colors.white,
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: isTablet ? 12 : 8,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.pushNamed(context, '/profile');
+                                          },
+                                          icon: const Icon(Icons.person, size: 16),
+                                          label: const Text('Profil'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey.shade600,
+                                            foregroundColor: Colors.white,
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: isTablet ? 12 : 8,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required IconData prefixIcon,
+    TextInputType? keyboardType,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+  }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      style: TextStyle(
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: TextStyle(
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w600,
+          fontSize: isTablet ? 16 : 14,
+        ),
+        prefixIcon: Icon(
+          prefixIcon,
+          color: Colors.grey.shade600,
+          size: isTablet ? 24 : 20,
+        ),
+        suffixIcon: suffixIcon,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+          borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+          borderSide: BorderSide(color: Colors.red.shade300),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+          borderSide: BorderSide(color: Colors.red.shade300, width: 2),
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF1F5F9),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 24 : 20,
+          vertical: isTablet ? 22 : 18,
+        ),
+      ),
+      validator: validator,
+    );
+  }
+}

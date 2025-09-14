@@ -49,7 +49,17 @@
 	<string>Bu uygulama tenis kortlarının konumunu göstermek için konum bilginizi kullanır.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Bu uygulama tenis kortlarının konumunu göstermek için konum bilginizi kullanır.</string>
-	<key>GMSApiKey</key>
-	<string>AIzaSyCq0Ut47h3kilRyLluvKbSR-KGPVvnURik</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google Sign-In için URL scheme - Google Console'dan alınacak -->
+				<string>com.googleusercontent.apps.600469271174-7ho2o2doo9bhbsb87pu56dc3ihb84sd6</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
